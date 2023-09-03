@@ -1,118 +1,106 @@
-import Image from 'next/image'
-import { Inter } from 'next/font/google'
+import { GetServerSideProps, NextPage } from 'next'
+import { useState, useMemo, useEffect } from 'react'
+import Link from 'next/link'
 
-const inter = Inter({ subsets: ['latin'] })
+import { ProductCategoryFilter } from '@/components/ProductCategoryFilter/ProductCategoryFilter'
+import { ProductPriceFilter } from '@/components/ProductPriceFilter/ProductPriceFilter'
+import { Button } from '@/components/Button/Button'
+import { Product } from '@/types/Product'
 
-export default function Home() {
+interface Props {
+  products: Product[]
+}
+
+export const getServerSideProps: GetServerSideProps<Props> = async () => {
+  const res = await fetch('https://fakestoreapi.com/products')
+  const products = await res.json()
+  return { props: { products } }
+}
+
+const Home: NextPage<Props> = ({ products }) => {
+  const [offset, setOffset] = useState<number>(8)
+  const [category, setCategory] = useState<string>('')
+  const [minPrice, setMinPrice] = useState<number>(0)
+  const [maxPrice, setMaxPrice] = useState<number>(0)
+
+  function prevPage() {
+    if (offset === 8) {
+      return
+    }
+
+    setOffset((prevOffset) => prevOffset - 8)
+  }
+
+  function nextPage() {
+    if(offset > products.length) {
+      return
+    }
+
+    setOffset((prevOffset) => prevOffset + 8)
+  }
+
+
+  const filteredProducts = useMemo<Product[]>(() => {
+    if (!products) return []
+
+    if (!category && minPrice === 0 && maxPrice === 0) {
+      return products.slice(offset - 8, offset)
+    }
+
+    return products.filter(product => {
+      return category ? product.category == category : true
+    }).filter(product => {
+      return minPrice > 0 ? minPrice <= parseFloat(product.price) : true
+    }).filter(product => {
+      return maxPrice > 0 ? maxPrice >= parseFloat(product.price) : true
+    }).slice(offset - 8, offset)
+
+  }, [products, offset, category, minPrice, maxPrice])
+
   return (
     <main
-      className={`flex min-h-screen flex-col items-center justify-between p-24 ${inter.className}`}
+      className="bg-white"
     >
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/pages/index.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+      <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
+        <h2 className="text-2xl font-bold tracking-tight text-gray-900 mb-6">Product overview</h2>
+
+        <div className='border-b-black border-b w-full flex flex-col gap-4 lg:flex-row'>
+          <ProductPriceFilter
+            onChange={e => setMinPrice(parseFloat(e.target.value))}
+            label='Min price'
+          />
+
+          <ProductPriceFilter
+            onChange={e => setMaxPrice(parseFloat(e.target.value))}
+            label='Max price'
+          />
+
+          <ProductCategoryFilter
+            onChange={e => setCategory(e.target.value)}
+            value={category}
+          />
         </div>
-      </div>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700/10 after:dark:from-sky-900 after:dark:via-[#0141ff]/40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+        <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+          {filteredProducts.map((product) => (
+            <Link className='group' href={`/product/${product.id}`} key={product.id}>
+              <div className='aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-lg bg-gray-200 xl:aspect-h-8 xl:aspect-w-7'>
+                <img className='h-full w-full object-cover object-center group-hover:opacity-75' src={product.image} alt='product image' />
+              </div>
+              <h3 className="mt-4 text-sm text-gray-700">{product.title}</h3>
+              <p className="mt-1 text-lg font-medium text-gray-900">{product.price}</p>
+              <p className="mt-1 text-sm text-gray-500">{product.category}</p>
+            </Link>
+          ))}
+        </div>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Discover and deploy boilerplate example Next.js&nbsp;projects.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+        <div className="flex flex-row mx-auto mt-16 justify-center gap-2">
+          <Button onClick={() => prevPage()}>Prev</Button>
+          <Button onClick={() => nextPage()}>Next</Button>
+        </div>
       </div>
     </main>
   )
 }
+
+export default Home
